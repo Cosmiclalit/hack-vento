@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 thinkers | Login</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="stylesheet" href="style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <style>
+        /* YOUR EXISTING CSS (UNCHANGED) */
         .stranger-modal {
             display: none; 
             position: fixed;
@@ -73,6 +75,14 @@
             box-shadow: 0 0 25px #ff0000;
         }
 
+        /* Error Message Style */
+        .error-msg {
+            color: #ff0000;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+            font-family: 'Courier New', Courier, monospace;
+        }
 
         @keyframes flicker {
             0% { box-shadow: 0 0 20px #a70000, inset 0 0 20px #a70000; }
@@ -91,29 +101,32 @@
         <div class="login-card">
             <h2>Enter The <span>Upside Down</span></h2>
             
-            <form id="loginForm" action="newwise.html" onsubmit="openStrangerModal(event)">
-                <div class="input-group">
-                    <label>EMAIL</label>
-                    <div class="input-wrapper">
-                        <i class="fa-regular fa-envelope"></i>
-                        <input type="email" name="email" placeholder="hawkins@lab.gov" autocomplete="username" required>
-                    </div>
-                </div>
+           <form id="loginForm" onsubmit="openStrangerModal(event)">
+    <div class="input-group">
+        <label>EMAIL</label>
+        <div class="input-wrapper">
+            <i class="fa-regular fa-envelope"></i>
+            <input type="email" id="emailInput" name="email" 
+                   placeholder="name123@gmail.com" 
+                   required>
+        </div>
+        <div id="emailError" class="error-msg" style="display:none; color: #ff0000; font-size: 11px; margin-top: 5px; font-family: 'Courier New';"></div>
+    </div>
 
-                <div class="input-group">
-                    <label>PASSWORD</label>
-                    <div class="input-wrapper">
-                        <i class="fa-solid fa-lock"></i>
-                        <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="new-password" required>
-                        <i class="fa-regular fa-eye toggle-password" onclick="togglePass()"></i>
-                    </div>
-                </div>
+    <div class="input-group">
+        <label>PASSWORD</label>
+        <div class="input-wrapper">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="password" name="password" placeholder="••••••••" required>
+            <i class="fa-regular fa-eye toggle-password" onclick="togglePass()"></i>
+        </div>
+    </div>
 
-                <button type="submit" class="btn-signup">SIGN UP</button>
-            </form>
+    <button type="submit" class="btn-signup">LOG IN</button>
+</form>
 
             <div id="g_id_onload"
-                 data-client_id="1041141475146-d7i77quftt6icupnknremk3n3fq7vi6r.apps.googleusercontent.com"
+                 data-client_id="475790801775-d81f245a28aopnmpkj2rfdcl8iopicm7.apps.googleusercontent.com"
                  data-callback="handleCredentialResponse"
                  data-auto_prompt="false">
             </div>
@@ -130,7 +143,7 @@
 
             <div class="footer-links">
                 <div class="or-divider">OR</div>
-                <p>Already have an account? <a href="newwise.html">Log In</a></p>
+                <p>Don't have an account? <a href="#">Sign up</a></p>
             </div>
         </div>
     </div>
@@ -172,21 +185,65 @@
     <script src="script.js"></script>
     
     <script>
-  
+        // --- 1. VALIDATION LOGIC ---
         function openStrangerModal(event) {
-            event.preventDefault(); 
+            event.preventDefault(); // Stop form submission
+
+            const emailInput = document.getElementById('emailInput');
+            const emailVal = emailInput.value.trim().toLowerCase(); // Lowercase & trim spaces
+            const errorDiv = document.getElementById('emailError');
+            
+            // Reset error message
+            errorDiv.style.display = 'none';
+            errorDiv.innerText = "";
+            emailInput.style.borderColor = ""; 
+
+            // Check 1: Must be Gmail
+            if (!emailVal.endsWith('@gmail.com')) {
+                showError("ONLY @GMAIL.COM ACCOUNTS ALLOWED.");
+                return;
+            }
+
+            // Split email to get the name part (before @)
+            const namePart = emailVal.split('@')[0];
+
+            // Check 2: Length (At least 10 chars)
+            if (namePart.length < 10) {
+                showError(`NAME TOO SHORT (${namePart.length}/10). NEEDS 10+ CHARACTERS.`);
+                return;
+            }
+
+            // Check 3: Must include a number
+            const hasNumber = /\d/.test(namePart); // Regex checks for digits 0-9
+            if (!hasNumber) {
+                showError("NAME MUST INCLUDE A NUMBER (e.g. name123).");
+                return;
+            }
+
+            // If all checks pass, open the modal
             document.getElementById('strangerModal').style.display = 'flex'; 
         }
 
-      
-        function submitRealForm() {
+        // Helper to show error
+        function showError(msg) {
+            const errorDiv = document.getElementById('emailError');
+            errorDiv.innerText = msg;
+            errorDiv.style.display = 'block';
             
-            document.getElementById('strangerModal').style.display = 'none';
-           
-            document.getElementById('loginForm').submit();
+            // Add a little shake effect (red border) to the input
+            const input = document.getElementById('emailInput');
+            input.style.borderColor = "red";
+            setTimeout(() => input.style.borderColor = "rgba(255, 255, 255, 0.1)", 2000);
         }
 
-       
+        // --- 2. FINAL REDIRECT ---
+        function submitRealForm() {
+            document.getElementById('strangerModal').style.display = 'none';
+            // Success! Redirect to next page
+            window.location.href = "newwise.html";
+        }
+
+        // --- 3. GOOGLE AUTH & UTILS ---
         function handleCredentialResponse(response) {
             const responsePayload = decodeJwtResponse(response.credential);
             console.log("Full Name: " + responsePayload.name);
@@ -201,8 +258,11 @@
             }).join(''));
             return JSON.parse(jsonPayload);
         }
+
+        function togglePass() {
+            const passInput = document.getElementById('password');
+            passInput.type = (passInput.type === "password") ? "text" : "password";
+        }
     </script>
 </body>
-
 </html>
-
