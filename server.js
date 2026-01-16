@@ -1,85 +1,63 @@
 require('dotenv').config();
+const express = require('express');
+const http = require('http');
 const { WebSocketServer } = require('ws');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const path = require('path');
 
-// --- CONFIGURATION ---
-// 1. SECURITY FIX: Never paste the key directly here. 
-// We now read strictly from the .env file.
+const app = express();
+const server = http.createServer(app);
+
+// --- 1. CONFIGURATION ---
 const API_KEY = process.env.GEMINI_API_KEY; 
-
-// 2. MODEL FIX: We are using "gemini-1.5-flash" to match your console logs.
-// (It is faster and cheaper for a Tutor bot than gemini-pro)
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-const wss = new WebSocketServer({ port: 8080 });
+// --- 2. SERVE THE WEBSITE (The part you were missing!) ---
+app.use(express.static(__dirname));
 
-console.log("------------------------------------------------");
-console.log("🚀 UPSIDE DOWN SERVER (Hybrid AI Mode) STARTED");
-console.log(`   Using Model: gemini-1.5-flash`); // Log now matches the code above
-console.log("------------------------------------------------");
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// --- 3. CHAT SERVER ---
+const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
     console.log("New client connected!");
 
     ws.on('message', async (message) => {
         let userPost;
-        try {
-            userPost = JSON.parse(message);
-        } catch (e) {
-            console.error("Invalid JSON received");
-            return;
-        }
+        try { userPost = JSON.parse(message); } catch (e) { return; }
         
-        console.log(`Received: ${userPost.title}`);
-
-        // Broadcast question immediately
-        broadcast(userPost);
+        broadcast(userPost); // Show user question immediately
 
         try {
-            // --- ATTEMPT 1: REAL AI ---
-            if (!API_KEY) {
-                throw new Error("Missing API Key in .env file");
-            }
-
-            const result = await model.generateContent(`
-                You are a helpful tutor for engineering students.
-                Question: "${userPost.content}"
-                Keep the answer short (max 2 sentences), simple and engaging.
-            `);
+            if (!API_KEY) throw new Error("No API Key");
             
+            // AI Reply
+            const result = await model.generateContent(`
+                You are a helpful tutor. 
+                Question: "${userPost.content}"
+                Keep answer short (max 2 sentences).
+            `);
             const response = await result.response;
-            const aiText = response.text();
-
-            sendAiResponse(aiText);
+            sendAiResponse(response.text());
 
         } catch (error) {
-            // --- ATTEMPT 2: FALLBACK ---
-            console.error("⚠️ AI Failed. Reason:", error.message);
-            
-            if(error.message.includes("400")) console.log("-> Check your API Key validity.");
-            if(error.message.includes("404")) console.log("-> Model not found. Update NPM package or check spelling.");
-
-            setTimeout(() => {
-                const fakeAnswer = generateBackupAnswer(userPost.content);
-                sendAiResponse(fakeAnswer);
-            }, 1000); 
+            console.error("AI Error:", error.message);
+            setTimeout(() => sendAiResponse("Thinking is hard right now... try again later!"), 1000);
         }
 
         function sendAiResponse(text) {
-            const aiPost = {
+            broadcast({
                 id: Date.now() + 1,
                 author: "Gemini AI",
                 role: "AI Tutor",
-                title: "Answer to: " + userPost.title,
+                title: "Answer",
                 content: text,
-                likes: 10,
-                replies: 0,
-                time: "Just now",
-                isSolved: true,
-                avatar: "🤖"
-            };
-            broadcast(aiPost);
+                likes: 0, replies: 0, time: "Just now", isSolved: true, avatar: "🤖"
+            });
         }
     });
 });
@@ -90,11 +68,8 @@ function broadcast(data) {
     });
 }
 
-function generateBackupAnswer(text) {
-    const q = text ? text.toLowerCase() : "";
-    if (q.includes("action") || q.includes("newton")) return "For every action, there is an equal and opposite reaction. (Newton's 3rd Law)";
-    if (q.includes("energy") || q.includes("thermo")) return "Energy cannot be created or destroyed, only transformed.";
-    if (q.includes("dna") || q.includes("bio")) return "The Leading strand is continuous, the Lagging strand uses Okazaki fragments.";
-    if (q.includes("java") || q.includes("code")) return "A Class is the blueprint, an Object is the instance.";
-    return "That's a great question! Try breaking it down into first principles.";
-}
+// Start the server
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
